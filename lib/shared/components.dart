@@ -25,7 +25,7 @@ GestureDetector buildNoteItem(
           title:title,
           note:note,
           status:status,
-          prevCubit: cubit,
+          cubit:cubit,
         )
       )
     ),
@@ -128,7 +128,7 @@ DropdownMenuItem buildDropDownItem({
           foreground:Paint()
           ..style=PaintingStyle.stroke
           ..strokeWidth=3
-          ..color=Colors.black
+          ..color=readOnly?Colors.grey:Colors.black
         )
       ),
       Text(

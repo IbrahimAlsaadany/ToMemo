@@ -24,12 +24,11 @@ class Home extends StatelessWidget{
         return Scaffold(
           key:_scaffoldKey,
           appBar:AppBar(
-            title:Text(cubit.appBarTitle()),
+            title:Text(cubit.currentTab==0?"Home":"Favorites"),
             backgroundColor:Colors.orange,
             automaticallyImplyLeading: false,
           ),
-          // backgroundColor: Colors.amber,
-          body:_isLoading?const Center(child:CircularProgressIndicator(color:Colors.white,)):const NavBarScreens(),
+          body:_isLoading?const Center(child:CircularProgressIndicator(color:Colors.amber)):const NavBarScreens(),
           bottomNavigationBar:BottomNavigationBar(
             elevation: 15,
             backgroundColor: Colors.orange,
@@ -87,7 +86,7 @@ class Home extends StatelessWidget{
                                 onChanged: (String val){
                                   cubit.titleCounter(titleController.text.length);
                                 },
-                                validator:(String? title)=>title!.isEmpty?"Title Must not be empty":null
+                                validator:(String? title)=>title!.isEmpty?"Title must not be empty.":null
                               ),
                               const SizedBox(height:10),
                               TextField(

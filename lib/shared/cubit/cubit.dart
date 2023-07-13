@@ -8,7 +8,7 @@ class AppCubit extends Cubit<AppStates>{
   late List<Map<String,dynamic>> notes,favorites;
   late int _favoritesUndoIndex,_notesUndoIndex;
   late Map<String,dynamic> _undoData;
-  late Database _db;
+  late final Database _db;
   final List<bool> selections=List.filled(5, false)..first=true;
   void changeTab(int i){
     currentTab=i;
@@ -23,12 +23,24 @@ class AppCubit extends Cubit<AppStates>{
     openDatabase(
       'to_memo.db',
       version:1,
-      onCreate:(Database db,int version)
-               => db.execute("CREATE TABLE notes(id INTEGER,color INTEGER,title TEXT,note TEXT,status TEXT)"),
-    ).then((Database db){
-      _db=db;
-      getDataFromDB();
-    });
+      onCreate:(Database db,int version){
+        emit(AppLoadingState());
+        db.execute("CREATE TABLE notes(id INTEGER,color INTEGER,title TEXT,note TEXT,status TEXT)");
+      },
+      onOpen: (Database db){
+        emit(AppLoadingState());
+        _db=db;
+        _db.rawQuery("SELECT * FROM notes")
+        .then((List<Map> data){
+          notes=<Map<String,dynamic>>[for (Map _ in data) Map<String,dynamic>.from(_)];
+        });
+        _db.rawQuery("SELECT * FROM notes WHERE status='favorite'")
+        .then((List<Map<String,dynamic>> data){
+          favorites=<Map<String,dynamic>>[for (Map _ in data) Map<String,dynamic>.from(_)];
+          emit(AppGotDataFromDBState());
+        });
+      }
+    );
   }
   void insertToDB({
     required final String title,
@@ -39,19 +51,6 @@ class AppCubit extends Cubit<AppStates>{
       notes.add({"title":title,"note":note,"color":_colorIndex,"status":"normal","id":_getLastID()+1});
       await _db.rawInsert("INSERT INTO notes(id,color,title,note,status) values(?,?,?,?,?)",[_getLastID(),_colorIndex,title,note,'normal']);
       emit(AppInsertToDBState());
-  }
-  void getDataFromDB(){
-    emit(AppLoadingState());
-    _db.rawQuery("SELECT * FROM notes")
-    .then((List<Map> data){
-      notes=<Map<String,dynamic>>[for (Map _ in data) Map<String,dynamic>.from(_)];
-    });
-    _db.rawQuery("SELECT * FROM notes WHERE status='favorite'")
-    .then((List<Map<String,dynamic>> data){
-      favorites=<Map<String,dynamic>>[for (Map _ in data) Map<String,dynamic>.from(_)];
-      emit(AppGotDataFromDBState());
-    });
-    
   }
   void addRemoveFavoriteDB({required final int id,required final String status})async{
     int index = notes.indexWhere((e)=>e["id"]==id);
@@ -82,12 +81,8 @@ class AppCubit extends Cubit<AppStates>{
   bool isEmptyList()=>notes.isEmpty||currentTab==1&&favorites.isEmpty;
   T whichClicked<T>(String inp,int index)
   => currentTab==0?notes[index][inp]:favorites[index][inp];
-  String appBarTitle([String title='']){
-    if(title.isEmpty) return currentTab==0?"Home":"Favorites";
-    return title;
-  }
   int _getLastID()=>notes.isNotEmpty?notes.last["id"]:-1;
-  void titleCounter(int l ){
+  void titleCounter(final int l ){
     titleLength=l;
     emit(AppTypingTitleState());
   }
@@ -97,22 +92,20 @@ class AppCubit extends Cubit<AppStates>{
     required final String title,
     required final String note,
     required final String status,
-    required final AppCubit prevCubit
   })async{
     readOnly=!readOnly;
     if(readOnly){
-      int normalIndex =notes.indexWhere((Map<String,dynamic> e) => e["id"]==id);
       int favoriteIndex = favorites.indexWhere((Map<String,dynamic> e) => e["id"]==id);
-      prevCubit.notes[normalIndex]=notes[normalIndex]={"id":id,"title":title,"note":note,"status":status,"color":color};
+      notes[notes.indexWhere((Map<String,dynamic> e) => e["id"]==id)]
+        ={"id":id,"title":title,"note":note,"status":status,"color":color};
       if(favoriteIndex!=-1)
-        prevCubit.favorites[favoriteIndex]=favorites[favoriteIndex]={"id":id,"title":title,"note":note,"status":status,"color":color};
+        favorites[favoriteIndex]={"id":id,"title":title,"note":note,"status":status,"color":color};
       await _db.rawUpdate("UPDATE notes SET title=?,note=?,color=? where id=?",[title,note,color,id]);
     }
     emit(AppChangeOpenedNoteState());
-    prevCubit.emit(AppScreenChangeState());
   }
-  void changeColor(int _)=>emit(AppChangeOpenedNoteState());
-  void chooseColor(int index){
+  void changeColor(final int _)=>emit(AppChangeOpenedNoteState());
+  void chooseColor(final int index){
     _colorIndex=index;
     for(int i=0;i<5;i++) selections[i]=i==index;
     emit(AppBottomSheetChangeState());
